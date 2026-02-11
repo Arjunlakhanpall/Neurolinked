@@ -99,7 +99,7 @@ Unlike standard NLP, BCI decoding requires multi-dimensional validation:
 
 ---
 <img width="1787" height="968" alt="eeg-to-text-translation-a-model-for-deciphering-human-brain-activity-2" src="https://github.com/user-attachments/assets/63cdf6b9-4e6f-4adc-b2dd-c0ca96132c4b" />
----
+
 ## ☁️ 5. Deployment (AWS MLOps)
 
 * **Storage:** All models and datasets are versioned on **S3** under explicit prefixes.
@@ -134,5 +134,6 @@ If you use this project in your research, please cite the underlying ZuCo datase
 
 **Maintained by:** Arjun Lakhanpal
 **Version:** 2026.02.11-Alpha
+
 
 
