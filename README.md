@@ -1,138 +1,118 @@
-# Mind-to-Script — Brain-to-Text Decoding System
+# Mind-to-Script: End-to-End EEG-to-Text Decoding
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch 2.2](https://img.shields.io/badge/PyTorch-2.2.0-ee4c2c.svg)](https://pytorch.org/)
-[![AWS Optimized](https://img.shields.io/badge/AWS-S3%20%7C%20EC2%20%7C%20CloudWatch-orange.svg)](https://aws.amazon.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-**Mind-to-Script** is a high-performance, non-invasive Brain-Computer Interface (BCI) designed to decode multi-channel EEG signals into English text. By leveraging a cross-modal "Bridge" architecture (1D-CNN + BiLSTM) and a pre-trained BART decoder, the system translates neural oscillations into natural language in real-time.
+**Mind-to-Script** is a non-invasive Brain-Computer Interface (BCI) framework designed to translate multi-channel EEG signals into natural language text. By bridging neural oscillations with the latent space of a Transformer, the system provides a pathway for real-time assistive communication.
 
 ---
 
-## 🏗 System Architecture
+## 📖 1. Research & Theoretical Foundation
 
-The system is built for scalability and production-readiness, following a modular MLOps lifecycle:
+This project is built upon state-of-the-art research in neural decoding and cross-modal alignment.
 
-1.  **Ingestion:** Raw ZuCo 2.0 (`.mat`/`.edf`) data is ingested and canonicalized.
-2.  **The Bridge:** A custom encoder maps temporal EEG features into the latent space of a Transformer.
-3.  **Inference:** A FastAPI service hosted on **AWS EC2 (g4dn)** processes signals with built-in **Signal Quality Index (SQI)** validation.
-4.  **Storage:** All artifacts (models, shards, logs) are versioned on **Amazon S3**.
+### Core Literature
 
-```text
-EEG Device -> FastAPI (API Gateway) -> Preprocessing (MNE) -> Bridge Model -> BART Decoder -> Text Output
+| Paper | Contribution to Project |
+| --- | --- |
+| **R1 Translator (2025)** | The inspiration for our **BiLSTM + BART** architecture, achieving SOTA on the ZuCo dataset. |
+| **ZuCo 2.0 (Hollenstein et al.)** | Our primary corpus, providing simultaneous EEG and eye-tracking data for word-level alignment. |
+| **EEG-to-Text via MLSTM (2024)** | Validated the use of mapping modules to bridge high-dimensional EEG features with text decoders. |
+| **Graph-Enhanced Decoding (2025)** | Informed our spatial electrode mapping logic (10-20 system). |
+
+### The "Bridge" Hypothesis
+
+We hypothesize that neural signals during reading contain temporal and spectral features that map non-linearly to the semantic embeddings of a Language Model (LM). Our "Bridge" model acts as an adapter, translating **micro-volt fluctuations** into **BART hidden states**.
+
+---
+
+## 🗺️ 2. System Architecture & Flow
+
+The system follows a strict pipeline from the scalp to the screen.
+
+### High-Level Flowchart
+
+### Technical Component Breakdown
+
+1. **Signal Acquisition:** Multi-channel EEG (e.g., 62-channel 10-20 montage).
+2. **Preprocessing (MNE):** * **Filtering:** 0.5–50 Hz Band-pass.
+* **Denoising:** ICA-based EOG/EMG artifact rejection.
+* **Alignment:** Word-level epoching based on gaze duration.
+
+
+3. **The Bridge (Encoder):** 1D-CNN + BiLSTM.
+4. **The Decoder:** Frozen `facebook/bart-base` for robust natural language generation.
+
+---
+
+## 🛠️ 3. Implementation Roadmap (30 Days)
+
+| Phase | Focus | Deliverables |
+| --- | --- | --- |
+| **Days 1-7** | **Data Engineering** | MNE pipeline, S3 bucket setup, ZuCo 2.0 canonical shards. |
+| **Days 8-15** | **Model Dev** | Bridge architecture implementation, latent alignment training. |
+| **Days 16-23** | **Deployment** | FastAPI container, AWS g4dn (T4 GPU) setup, Prometheus metrics. |
+| **Days 24-30** | **Hardening** | CI/CD via GH Actions, SQI-based guardrails, WER/BLEU evaluation. |
+
+---
+
+## 🔌 4. Deployment & MLOps
+
+### Configuration (.env)
+
+```env
+# AWS Settings
+AWS_REGION=us-east-1
+MODEL_S3_URI=s3://mindtoscript/models/v1.0.0/
+
+# Inference Constraints
+SQI_THRESHOLD=0.25      # Hard reject below this quality
+AMPLITUDE_LIMIT=100.0   # Reject if >100µV (Artifacts)
+
+# Performance
+USE_CUDA=True
+BATCH_SIZE=32
 
 ```
 
----
+### Operational Guardrails
 
-## 🛠 Tech Stack
+To ensure scientific validity, the system implements:
 
-| Component | Technology |
-| --- | --- |
-| **Deep Learning** | PyTorch, HuggingFace (BART), MNE-Python |
-| **Backend** | FastAPI, Uvicorn, SQLAlchemy |
-| **Cloud (AWS)** | S3, EC2 (NVIDIA T4), IAM, CloudWatch |
-| **Ops & Monitoring** | Docker, Prometheus, GitHub Actions |
-| **Database** | PostgreSQL (Production) / SQLite (Dev) |
+* **Noise Baselines:** Periodic testing against Gaussian noise to ensure the model isn't "hallucinating" text without real EEG input.
+* **Signal Quality Index (SQI):** Real-time monitoring of channel impedance and signal-to-noise ratio.
+* **Monitoring:** CloudWatch alerts for GPU memory leaks and high WER (Word Error Rate) spikes.
 
 ---
 
-## 📁 Project Structure
+## 📁 5. Directory Structure
 
 ```bash
 .
-├── app/                  # Production API
-│   ├── main.py           # FastAPI entrypoint & SQI logic
-│   ├── model.py          # Bridge architecture (CNN+BiLSTM)
-│   └── db.py             # Inference result persistence
-├── scripts/              # Data & Training Pipeline
-│   ├── load_zuco.py      # Raw data ingestion
-│   ├── align_zuco.py     # Word-level onset/offset alignment
-│   └── train_shards.py   # Shard-based training on GPU
-├── docker/               # Containerization
-│   ├── Dockerfile        # CUDA 11.8 base image
-│   └── docker-compose.yml# Multi-service local orchestration
-├── requirements.txt      # Dependency manifest
-└── DESIGN.md             # Core design & AWS specifications
+├── app/                # FastAPI Inference Service
+│   ├── main.py         # API entrypoint & SQI logic
+│   ├── model.py        # Bridge (CNN+BiLSTM) implementation
+│   └── db.py           # Inference result persistence (PostgreSQL)
+├── scripts/            # Research & Data Pipeline
+│   ├── load_zuco.py    # Raw data processing
+│   ├── train_shards.py # GPU training script
+│   └── evaluate.py     # WER/BLEU/ROUGE scoring
+├── docker/             # Containerization
+│   └── Dockerfile      # PyTorch + CUDA 11.8 base
+└── .github/            # CI/CD Workflows
 
 ```
 
 ---
 
-## 📅 30-Day Implementation Roadmap
+## ⚡ 6. Execution Commands
 
-### **Week 1: Data Engineering**
-
-* Setup AWS S3 bucket versioning & IAM policies.
-* Implement MNE-based preprocessing (Band-pass 0.5–50 Hz, ICA).
-* Generate versioned data shards (`v1.0.0`) for reproducible training.
-
-### **Week 2: Model & Bridge Training**
-
-* Implement the EEG-to-BART projection layer.
-* Fine-tune the "Bridge" on ZuCo 2.0 shards.
-* Achieve baseline Word Error Rate (WER) and BLEU scores.
-
-### **Week 3: Deployment & Monitoring**
-
-* Build Docker images with NVIDIA Container Toolkit support.
-* Deploy to EC2 `g4dn.xlarge` using AWS Deep Learning AMI.
-* Configure Prometheus metrics for latency and SQI tracking.
-
-### **Week 4: CI/CD & Hardening**
-
-* Automate model reloads via S3 versioned prefixes.
-* Implement GitHub Actions for unit tests and linting.
-* Set up CloudWatch billing and GPU-utilization alarms.
-
----
-
-## ⚡ Quickstart
-
-### 1. Installation
+### Local Training
 
 ```bash
-git clone [https://github.com/your-username/mind-to-script.git](https://github.com/your-username/mind-to-script.git)
-cd mind-to-script
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+python scripts/train_shards.py --version v1.0.0 --epochs 50 --batch 64
 
 ```
 
-### 2. Local Development (API)
+### Build Production Container
 
 ```bash
-# Start the API with hot-reload
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-```
-
-### 3. Build Docker Image
-
-```bash
-docker compose build
-docker compose up
-
-```
-
----
-
-## 🔒 Security & Governance
-
-* **IAM Roles:** EC2 instances use narrow-scope IAM roles for S3/CloudWatch access (No static keys).
-* **Data Validation:** Hard rejection (HTTP 422) for signals with SQI < 0.25.
-* **Infrastructure as Code:** Recommended deployment via Terraform (see `Appendix` in DESIGN.md).
-
----
-
-## 📜 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
-
----
-
-**Maintained by:** Arjun Lakhanpal
-
-**Last Updated:** 2026-02-11
-
+docker build -t mindtoscript:v1 -f docker/Dockerfile .
+docker run --gpus all -p 8000:8000 mindtoscript:v1
