@@ -1,118 +1,86 @@
-# Mind-to-Script: End-to-End EEG-to-Text Decoding
+# Neurolinked (Mind-to-Script)
 
-**Mind-to-Script** is a non-invasive Brain-Computer Interface (BCI) framework designed to translate multi-channel EEG signals into natural language text. By bridging neural oscillations with the latent space of a Transformer, the system provides a pathway for real-time assistive communication.
+Lightweight EEG → Text prototype and toolkit (preprocessing, bridge training, FastAPI serving, and deployment helpers).
 
----
+CI status: ![CI](https://github.com/Arjunlakhanpall/Neurolinked)
 
-## 📖 1. Research & Theoretical Foundation
+See `DESIGN.md` for architecture, timeline, and full runbook.
 
-This project is built upon state-of-the-art research in neural decoding and cross-modal alignment.
+Quickstart (local dev)
+----------------------
+1. Create & activate venv (Windows PowerShell):
 
-### Core Literature
+    python -m venv .venv
+    .\.venv\Scripts\Activate.ps1
 
-| Paper | Contribution to Project |
-| --- | --- |
-| **R1 Translator (2025)** | The inspiration for our **BiLSTM + BART** architecture, achieving SOTA on the ZuCo dataset. |
-| **ZuCo 2.0 (Hollenstein et al.)** | Our primary corpus, providing simultaneous EEG and eye-tracking data for word-level alignment. |
-| **EEG-to-Text via MLSTM (2024)** | Validated the use of mapping modules to bridge high-dimensional EEG features with text decoders. |
-| **Graph-Enhanced Decoding (2025)** | Informed our spatial electrode mapping logic (10-20 system). |
+2. Install test/runtime deps (fast path for tests):
 
-### The "Bridge" Hypothesis
+    pip install -r requirements-ci.txt
+    pip install --index-url https://download.pytorch.org/whl/cpu torch==2.2.0+cpu
 
-We hypothesize that neural signals during reading contain temporal and spectral features that map non-linearly to the semantic embeddings of a Language Model (LM). Our "Bridge" model acts as an adapter, translating **micro-volt fluctuations** into **BART hidden states**.
+3. Run unit tests:
 
----
+    pytest -q
 
-## 🗺️ 2. System Architecture & Flow
+4. Start the FastAPI server (dev):
 
-The system follows a strict pipeline from the scalp to the screen.
+    $env:MODEL_DIR = ".\models"
+    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-### High-Level Flowchart
+Endpoints
+---------
+- POST /infer — JSON body: `{ "signals": [[...], ...], "sfreq": 500 }`
+- GET  /metrics — Prometheus metrics
+- GET  /history — recent inference results from the DB
 
-### Technical Component Breakdown
+Example curl (quick smoke):
 
-1. **Signal Acquisition:** Multi-channel EEG (e.g., 62-channel 10-20 montage).
-2. **Preprocessing (MNE):** * **Filtering:** 0.5–50 Hz Band-pass.
-* **Denoising:** ICA-based EOG/EMG artifact rejection.
-* **Alignment:** Word-level epoching based on gaze duration.
+    curl -X POST http://127.0.0.1:8000/infer \
+      -H "Content-Type: application/json" \
+      -d '{"signals":[[0,0,0,0],[0,0,0,0]],"sfreq":500}'
 
+Docker (build & run)
+--------------------
+Build (local Docker Desktop):
 
-3. **The Bridge (Encoder):** 1D-CNN + BiLSTM.
-4. **The Decoder:** Frozen `facebook/bart-base` for robust natural language generation.
+    docker compose build
 
----
+Run API (no GPU required for dev):
 
-## 🛠️ 3. Implementation Roadmap (30 Days)
+    docker compose up -d web
 
-| Phase | Focus | Deliverables |
-| --- | --- | --- |
-| **Days 1-7** | **Data Engineering** | MNE pipeline, S3 bucket setup, ZuCo 2.0 canonical shards. |
-| **Days 8-15** | **Model Dev** | Bridge architecture implementation, latent alignment training. |
-| **Days 16-23** | **Deployment** | FastAPI container, AWS g4dn (T4 GPU) setup, Prometheus metrics. |
-| **Days 24-30** | **Hardening** | CI/CD via GH Actions, SQI-based guardrails, WER/BLEU evaluation. |
+Run the one-shot example (container runs scripts/run_example_inference.py):
 
----
+    MODEL_S3_URI=s3://bucket/path/ docker compose run --rm example
 
-## 🔌 4. Deployment & MLOps
+Training & data pipeline (references)
+-------------------------------------
+- Create canonical pickles from ZuCo files:
+  scripts/load_zuco.py
+- Build shards (per-word epochs):
+  scripts/build_manifest_and_shards.py --canonical data/canonical --out data/shards --version v1.0.0
+- Train bridge from shards:
+  python scripts/train_from_shards.py --version v1.0.0 --shard-root ./data/shards --model-dir ./models
 
-### Configuration (.env)
+Notes & best practices
+----------------------
+- Put models and dataset artifacts on S3 under versioned prefixes (e.g. `s3://bucket/mindtoscript/models/v1.0.0/`).
+- Do NOT store secrets in the repo. Use an EC2 instance role or Secrets Manager for production.
+- If you use the HF hub, ensure network access and compatible `transformers` versions.
+- For production inference use a GPU host (g4dn.xlarge) and the NVIDIA Container Toolkit.
 
-```env
-# AWS Settings
-AWS_REGION=us-east-1
-MODEL_S3_URI=s3://mindtoscript/models/v1.0.0/
+Related docs & demos
+--------------------
+- `DESIGN.md` — architecture, timeline, S3/IAM guidance
+- `notebooks/end_to_end_demo.ipynb` — synthetic end-to-end demo
+- `scripts/run_demo_with_bart.py` — runs a real BART decoder (downloads model)
 
-# Inference Constraints
-SQI_THRESHOLD=0.25      # Hard reject below this quality
-AMPLITUDE_LIMIT=100.0   # Reject if >100µV (Artifacts)
+Troubleshooting
+---------------
+- If `git push` fails with SSH errors, either add your SSH key to GitHub or switch to HTTPS remote.
+- If `transformers` fails to load models, ensure your Python + CUDA + torch versions match the HF wheel.
+- If GPU OOM occurs, reduce batch size and enable mixed precision.
 
-# Performance
-USE_CUDA=True
-BATCH_SIZE=32
-
-```
-
-### Operational Guardrails
-
-To ensure scientific validity, the system implements:
-
-* **Noise Baselines:** Periodic testing against Gaussian noise to ensure the model isn't "hallucinating" text without real EEG input.
-* **Signal Quality Index (SQI):** Real-time monitoring of channel impedance and signal-to-noise ratio.
-* **Monitoring:** CloudWatch alerts for GPU memory leaks and high WER (Word Error Rate) spikes.
-
----
-
-## 📁 5. Directory Structure
-
-```bash
-.
-├── app/                # FastAPI Inference Service
-│   ├── main.py         # API entrypoint & SQI logic
-│   ├── model.py        # Bridge (CNN+BiLSTM) implementation
-│   └── db.py           # Inference result persistence (PostgreSQL)
-├── scripts/            # Research & Data Pipeline
-│   ├── load_zuco.py    # Raw data processing
-│   ├── train_shards.py # GPU training script
-│   └── evaluate.py     # WER/BLEU/ROUGE scoring
-├── docker/             # Containerization
-│   └── Dockerfile      # PyTorch + CUDA 11.8 base
-└── .github/            # CI/CD Workflows
-
-```
-
----
-
-## ⚡ 6. Execution Commands
-
-### Local Training
-
-```bash
-python scripts/train_shards.py --version v1.0.0 --epochs 50 --batch 64
-
-```
-
-### Build Production Container
-
-```bash
-docker build -t mindtoscript:v1 -f docker/Dockerfile .
-docker run --gpus all -p 8000:8000 mindtoscript:v1
+License & citation
+------------------
+Add your license file (LICENSE) and citation information for ZuCo and related papers.
