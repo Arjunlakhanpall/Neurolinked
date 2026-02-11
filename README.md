@@ -1,109 +1,84 @@
 # Neurolinked: Non-Invasive Brain-to-Text Decoding
 
-**Neurolinked** (a.k.a. **Mind-to-Script**) is an end-to-end research and deployment toolkit that converts multi-channel EEG signals into natural-language text. By bridging neural oscillations with a pre-trained BART transformer, the system enables high-fidelity brain-to-text translation for assistive technology and cognitive research.
+**Neurolinked** (also known as **Mind-to-Script**) is an end-to-end research and deployment framework designed to translate multi-channel EEG signals into natural language text. By bridging neural oscillations with a pre-trained BART Transformer, the system provides a robust pipeline for real-time brain-computer interface (BCI) communication.
 
 ---
 
-## ✨ Features
+## ℹ️ Project Overview
 
-* **Reproducible Pipeline:** Automated MNE-based preprocessing (ICA, artifact removal, band-pass filtering).
-* **Neural Bridge Architecture:** A 1D-CNN + BiLSTM encoder that projects EEG features into the `d_model` embedding space of a Transformer.
-* **Cloud-Native Inference:** GPU-optimized FastAPI service ready for AWS deployment (g4dn/p3).
-* **Signal Integrity:** Real-time Signal Quality Index (SQI) monitoring to ensure decoding accuracy.
-* **MLOps Ready:** Versioned data/model artifacts on S3, Prometheus monitoring, and persistence via SQLAlchemy.
+Translating raw brain activity into coherent text remains a "holy grail" of BCI research. Neurolinked addresses this by using a cross-modal "Bridge" architecture. It captures temporal and spatial brain patterns via a 1D-CNN + BiLSTM encoder and projects them into the latent space of a language model. This approach preserves the linguistic power of the decoder while allowing the encoder to specialize in noisy, high-dimensional neural data.
 
----
+### Key Features
 
-## 🛠️ Tech Stack
-
-| Category | Technology |
-| --- | --- |
-| **Deep Learning** | PyTorch, HuggingFace (BART), MNE-Python |
-| **Backend & API** | FastAPI, Uvicorn, Docker, NVIDIA-Container-Toolkit |
-| **Cloud (AWS)** | S3 (Versioning), EC2 (G4dn), IAM Roles, CloudWatch |
-| **Observability** | Prometheus, SQLAlchemy, Structured JSON Logging |
+* **Automated MNE Preprocessing:** Reproducible ICA, band-pass filtering (0.5–50 Hz), and artifact rejection.
+* **Neural Bridge Module:** Maps EEG features directly to the `d_model` embedding space of BART.
+* **Production-Ready API:** FastAPI service with integrated Signal Quality Index (SQI) monitoring and Prometheus metrics.
+* **AWS Integration:** Native support for S3 model versioning and EC2 GPU inference.
 
 ---
 
-## 🚀 Quick Start
+## 🛠️ System Architecture
 
-### 1. Prerequisites
+The Neurolinked pipeline is divided into three distinct phases:
 
-* Python 3.10+
-* Docker & NVIDIA Container Toolkit (for GPU inference)
-* AWS CLI configured (for artifact fetching)
+1. **Data Engineering:** Raw signals from the **ZuCo 2.0** dataset are aligned with word-level gaze duration and sharded into `.pt` files for high-speed training.
+2. **Latent Alignment:** The "Bridge" model is trained to minimize the distance between EEG-derived embeddings and the target text's semantic embeddings.
+3. **Real-Time Inference:** Incoming signals are validated via an SQI check. If the signal passes quality thresholds (), it is decoded by the BART Transformer.
 
-### 2. Installation
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+* **Python 3.10+**
+* **NVIDIA Docker Toolkit** (for GPU acceleration)
+* **AWS CLI** (optional, for cloud artifact management)
+
+### Installation
 
 ```bash
-git clone https://github.com/your-repo/neurolinked.git
+git clone https://github.com/your-username/neurolinked.git
 cd neurolinked
-python -m venv .venv
-source .venv/bin/activate  # Windows: .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
 ```
 
-### 3. Run Inference API (Development)
+### Quick Usage
+
+To run a local inference test with synthetic data:
 
 ```bash
-export MODEL_DIR="./models"
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+python scripts/run_demo_with_bart.py
+
+```
+
+To launch the FastAPI production server:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 ```
 
 ---
 
-## 🧬 Data & Training Workflow
+## 📈 Research & Evaluation
 
-The system is optimized for the **ZuCo 2.0** dataset. Follow this cadence to train a custom bridge:
+We evaluate the system using standard NLP metrics alongside BCI-specific benchmarks:
 
-1. **Ingestion:** Convert raw `.mat`/`.edf` files to canonical pickles.
-```bash
-python scripts/load_zuco.py
-
-```
-
-
-2. **Sharding:** Build per-word shards for efficient PyTorch loading.
-```bash
-python scripts/build_manifest_and_shards.py --canonical data/canonical --out data/shards --version v1.0.0
-
-```
-
-
-3. **Training:** Train the CNN+BiLSTM bridge.
-```bash
-python scripts/train_from_shards.py --version v1.0.0 --shard-root ./data/shards --model-dir ./models
-
-```
-
-
-
----
-
-## ☁️ Deployment & Ops
-
-* **S3 Artifacts:** Store models under versioned prefixes: `s3://bucket/mindtoscript/models/v1.0.0/`.
-* **Infrastructure:** Recommended EC2 instance `g4dn.xlarge` using the Deep Learning AMI.
-* **Security:** Use **IAM Instance Roles** to grant S3 read access to the EC2 host.
-* **Monitoring:** Access Prometheus metrics at `/metrics` to track latency, GPU memory, and rejection rates.
-
----
-
-## 📄 Documentation & Citations
-
-For detailed architecture diagrams and the 30-day implementation roadmap, refer to [DESIGN.md](https://www.google.com/search?q=./DESIGN.md).
+* **Word Error Rate (WER):** Primary metric for transcription accuracy.
+* **BLEU-4 / ROUGE-L:** Evaluation of linguistic fluency and semantic overlap.
+* **Signal Quality Gauges:** Gauge metrics for real-time hardware performance monitoring.
 
 ### Citation
 
-If you use this code for research, please cite the underlying ZuCo dataset:
+If you use this project in your research, please cite the underlying ZuCo dataset:
 
 ```bibtex
 @article{hollenstein2020zuco,
   title={ZuCo 2.0: A Dataset of Physiological Signals during Natural Reading and Annotation},
   author={Hollenstein, Nora and et al.},
-  journal={arXiv preprint arXiv:1912.00036},
+  journal={Scientific Data},
   year={2020}
 }
 
@@ -111,4 +86,7 @@ If you use this code for research, please cite the underlying ZuCo dataset:
 
 ---
 
-**Next Step:** I can generate a **one-click Terraform template** to provision your AWS S3 and EC2 infrastructure. Would you like me to add that to the repo?
+## 🔒 Security & Safety
+
+* **IAM Roles:** The system is designed to use IAM instance profiles for AWS access—never hardcode your keys.
+* **Privacy:** All inference results are stored locally or in your private DB; no data is sent to external AI providers unless explicitly configured.
