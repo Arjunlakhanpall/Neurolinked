@@ -45,7 +45,7 @@ The Bridge is a cross-modal adapter consisting of:
 * **Linear Projection:** A learnable layer that aligns the BiLSTM output with the 768-dimension embedding space of **BART-base**.
 
 
-Caption: Fig 1. EEG-to-Text Translation: A model for deciphering human brain activity via temporal feature alignment.
+<img width="2013" height="348" alt="eeg2text-open-vocabulary-eeg-to-text-decoding-with-eeg-pre-training-and-multi-view-transformer-1" src="https://github.com/user-attachments/assets/57bd8057-d31b-4f9c-9a07-9930fff81de9" />
 
 ---
 
@@ -98,7 +98,7 @@ Unlike standard NLP, BCI decoding requires multi-dimensional validation:
 | **Noise Baseline** | Δ > 10% | Confirms performance vs. random Gaussian noise. |
 
 ---
-Caption: Fig 2. EEG2Text: Open-vocabulary EEG-to-text decoding utilizing EEG pre-training and multi-view transformer architectures.
+<img width="1787" height="968" alt="eeg-to-text-translation-a-model-for-deciphering-human-brain-activity-2" src="https://github.com/user-attachments/assets/63cdf6b9-4e6f-4adc-b2dd-c0ca96132c4b" />
 ---
 ## ☁️ 5. Deployment (AWS MLOps)
 
@@ -134,4 +134,5 @@ If you use this project in your research, please cite the underlying ZuCo datase
 
 **Maintained by:** Arjun Lakhanpal
 **Version:** 2026.02.11-Alpha
+
 
