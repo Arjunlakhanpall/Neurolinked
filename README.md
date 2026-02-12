@@ -75,3 +75,15 @@ Please add a LICENSE file and include proper citations for ZuCo and related pape
 Questions or next steps
 -----------------------
 To run a full demo on your machine or cloud, follow DESIGN.md. If you want I can add a one-click Terraform template for S3 + IAM + EC2 or generate a PNG architecture diagram — tell me which and I’ll add it.
+
+Visuals
+-------
+Below are the visual assets in this repo illustrating the model architecture and dataset/workflow.
+
+![EEG to Text Model Overview](eeg-to-text-translation-a-model-for-deciphering-human-brain-activity-2.png)
+
+![EEG2Text: Open-Vocabulary / Pretraining](eeg2text-open-vocabulary-eeg-to-text-decoding-with-eeg-pre-training-and-multi-view-transformer-1.png)
+
+Contact & citation
+------------------
+If you use this repo in research, cite the ZuCo dataset and include an appropriate acknowledgement. For questions reach out via the GitHub repo issues.
