@@ -1,139 +1,77 @@
-# Neurolinked: Non-Invasive Brain-to-Text Decoding via Latent Alignment
+# Neurolinked — Mind-to-Script (EEG → Text)
 
-**Neurolinked** (also known as **Mind-to-Script**) is an end-to-end research and deployment framework designed to decode natural language from non-invasive electroencephalogram (EEG) signals. By bridging neural oscillations with the latent space of a pre-trained Transformer (BART), the system provides a pathway for real-time assistive communication and neural linguistics research.
+Neurolinked (a.k.a. Mind-to-Script) is an end-to-end research and deployment toolkit that converts non-invasive EEG recordings into natural-language text. It provides data preprocessing, dataset sharding, a CNN+BiLSTM "bridge" that projects EEG features into transformer embedding space, and a FastAPI service for inference with monitoring and persistence.
 
----
+Why this repo
+--------------
+This codebase bundles reproducible pipelines for:
+- EEG preprocessing and artifact removal (MNE-based)
+- Per-word epoch extraction and dataset sharding for supervised training
+- A trainable EEG encoder + projection ("bridge") that interfaces with a pretrained BART decoder
+- A GPU-ready Dockerized inference service (FastAPI) with SQI checks, Prometheus metrics, and DB persistence
 
-## 📖 1. Research & Theoretical Foundation
+Quick overview (how to get started)
+-----------------------------------
+1. Create and activate a Python virtual environment:
 
-Neurolinked is grounded in the **Latent Alignment** hypothesis, which suggests that neural representations of language during reading or imagined speech contain semantic markers that can be mapped onto the embedding space of Large Language Models (LLMs).
+   python -m venv .venv
+   # PowerShell
+   .\.venv\Scripts\Activate.ps1
+   # or Unix
+   source .venv/bin/activate
 
-### 1.1 State-of-the-Art Context (2024–2026)
+2. Install minimal test dependencies (fast):
 
-Current research has shifted from simple motor imagery classification to **Generative BCI (BCI 2.0)**:
+   pip install -r requirements-ci.txt
+   pip install --index-url https://download.pytorch.org/whl/cpu torch==2.2.0+cpu
 
-* **The R1 Translator (2025):** Demonstrated that bidirectional LSTMs outperform traditional adapters in capturing the sequential dependencies of brainwaves.
-* **CET-MAE (2024):** Introduced contrastive masked autoencoders to bridge the semantic gap between EEG and text.
-* **Evaluation Rigor:** Our system addresses "Teacher Forcing" fallacies by including **Noise Baselines** to ensure the model isn't simply "hallucinating" coherent text from random noise.
+3. Run unit tests:
 
-### 1.2 Core Bibliography
+   pytest -q
 
-1. **Hollenstein, N., et al. (2020/2024).** *ZuCo 2.0: A Dataset of Physiological Signals during Natural Reading.* Scientific Data.
-2. **Wang, J., & Ji, S. (2022/2025).** *Open Vocabulary EEG-to-Text Decoding.* 3. **Duan, Y., et al. (2024).** *DeWave: Discrete EEG-to-Text Generation.*
-3. **Masry, A. (2025).** *Multimodal Feature Encoding in BCI.*
+4. Start the API server for local testing:
 
----
+   $env:MODEL_DIR = "./models"         # PowerShell
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-## 🏗️ 2. System Architecture
+Core endpoints
+--------------
+- POST /infer — Accepts JSON `{ "signals": [[...], ...], "sfreq": 500 }` and returns {text, confidence, meta}.
+- GET /metrics — Prometheus-formatted metrics (latency, SQI, GPU memory, rejections).
+- GET /history — Recent inferences persisted to the DB.
 
-The Neurolinked architecture follows a modular **Signal → Latent → Text** pipeline.
+Data & training workflow
+------------------------
+1. Convert raw ZuCo files to canonical pickles:
+   scripts/load_zuco.py
+2. Build per-word shards for training:
+   scripts/build_manifest_and_shards.py --canonical data/canonical --out data/shards --version v1.0.0
+3. Train the bridge:
+   python scripts/train_from_shards.py --version v1.0.0 --shard-root ./data/shards --model-dir ./models
 
-### 2.1 The Preprocessing Engine (MNE-based)
+Deployment & ops
+-----------------
+- Store datasets and model artifacts on S3 with explicit version prefixes, e.g., `s3://bucket/mindtoscript/models/v1.0.0/`.
+- Use IAM instance roles (no plaintext credentials) and CloudWatch for billing/health alerts.
+- Docker compose is provided for local and EC2 deployment; the Dockerfile is GPU-ready.
 
-Raw EEG signals have an extremely low Signal-to-Noise Ratio (). Our pipeline implements:
+Safety & observability
+----------------------
+- Signal Quality Index (SQI) guards against low-quality EEG (hard reject if SQI < 0.25).
+- Prometheus metrics include inference latency, SQI, GPU memory usage, and hard-reject counter.
+- Inference results are persisted to a relational DB for auditing and drift monitoring.
 
-* **Band-pass Filtering:** 0.5–50 Hz to capture Delta through Gamma bands.
-* **Artifact Rejection:** Independent Component Analysis (ICA) to isolate EOG (eye) and EMG (muscle) noise.
-* **Normalization:** Subject-specific Z-scoring to account for individual cortical variations.
+Files to review
+---------------
+- DESIGN.md — architecture, timeline and cloud runbook
+- scripts/ — data processing, shard building, training and demo scripts
+- notebooks/ — end-to-end synthetic demo
+- app/ — FastAPI service, model loader, DB integration
 
-### 2.2 The "Bridge" Encoder
+Contributing, license & citations
+---------------------------------
+Please add a LICENSE file and include proper citations for ZuCo and related papers when using this dataset. For contributions, follow the CI checks in `.github/workflows/ci.yml`.
 
-The Bridge is a cross-modal adapter consisting of:
-
-* **1D-CNN Layer:** For local temporal feature extraction across electrodes.
-* **BiLSTM Layer:** To capture long-range dependencies in the "flow" of thought.
-* **Linear Projection:** A learnable layer that aligns the BiLSTM output with the 768-dimension embedding space of **BART-base**.
-
-
-<img width="2013" height="348" alt="eeg2text-open-vocabulary-eeg-to-text-decoding-with-eeg-pre-training-and-multi-view-transformer-1" src="https://github.com/user-attachments/assets/57bd8057-d31b-4f9c-9a07-9930fff81de9" />
-
----
-
-## 🚀 3. Installation & Usage
-
-### 3.1 Environment Setup
-
-```bash
-git clone https://github.com/Arjunlakhanpall/Neurolinked.git
-cd Neurolinked
-python -m venv .venv
-source .venv/bin/activate  # Windows: .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-
-```
-
-### 3.2 Data Preparation
-
-```bash
-# Canonicalize raw ZuCo .mat files
-python scripts/load_zuco.py
-
-# Create sharded training data
-python scripts/build_manifest_and_shards.py --canonical ./data/canonical --out ./data/shards --version v1.0.0
-
-```
-
-### 3.3 Training & Inference
-
-```bash
-# Train the Bridge model
-python scripts/train_from_shards.py --version v1.0.0 --epochs 50
-
-# Launch Production API
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-
-```
-
----
-
-## 📊 4. Evaluation & Scientific Rigor
-
-Unlike standard NLP, BCI decoding requires multi-dimensional validation:
-
-| Metric | Target | Purpose |
-| --- | --- | --- |
-| **WER** | < 40% | Measures raw transcription accuracy. |
-| **BLEU-4** | > 0.15 | Measures linguistic fluency. |
-| **SQI** | > 0.25 | Hardware performance monitoring. |
-| **Noise Baseline** | Δ > 10% | Confirms performance vs. random Gaussian noise. |
-
----
-<img width="1787" height="968" alt="eeg-to-text-translation-a-model-for-deciphering-human-brain-activity-2" src="https://github.com/user-attachments/assets/63cdf6b9-4e6f-4adc-b2dd-c0ca96132c4b" />
-
-## ☁️ 5. Deployment (AWS MLOps)
-
-* **Storage:** All models and datasets are versioned on **S3** under explicit prefixes.
-* **Compute:** Deployment is optimized for **EC2 g4dn.xlarge** instances using the NVIDIA T4 GPU.
-* **Security:** Use **IAM Instance Profiles** for S3 access. **Never** hardcode AWS Access Keys in the `.env` file.
-* **Monitoring:** Prometheus tracks `/metrics`, including `eeg_inference_latency` and `gpu_memory_utilization`.
-
----
-
-## 📜 6. Citation
-
-If you use this project in your research, please cite the underlying ZuCo dataset and this repository:
-
-```bibtex
-@article{hollenstein2020zuco,
-  title={ZuCo 2.0: A Dataset of Physiological Signals during Natural Reading and Annotation},
-  author={Hollenstein, Nora and et al.},
-  journal={Scientific Data},
-  year={2020}
-}
-
-```
-
----
-
-## 🔒 7. Ethics & Safety
-
-* **Privacy:** EEG data is highly sensitive "biometric" data. Neurolinked is designed to run locally or on private cloud instances.
-* **Medical Disclaimer:** This is a **research tool**, not a medical device. It is not intended for clinical diagnosis.
-
----
-
-**Maintained by:** Arjun Lakhanpal
-**Version:** 2026.02.11-Alpha
-
-
-
+Questions or next steps
+-----------------------
+To run a full demo on your machine or cloud, follow DESIGN.md. If you want I can add a one-click Terraform template for S3 + IAM + EC2 or generate a PNG architecture diagram — tell me which and I’ll add it.
