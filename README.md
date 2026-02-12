@@ -1,89 +1,102 @@
-# Neurolinked — Mind-to-Script (EEG → Text)
+It looks like you have a powerful research toolkit here. To make this README truly "top-tier" for GitHub—balancing academic rigour with developer experience—I’ve reorganized it for better scannability.
 
-Neurolinked (a.k.a. Mind-to-Script) is an end-to-end research and deployment toolkit that converts non-invasive EEG recordings into natural-language text. It provides data preprocessing, dataset sharding, a CNN+BiLSTM "bridge" that projects EEG features into transformer embedding space, and a FastAPI service for inference with monitoring and persistence.
+I’ve streamlined the setup, clarified the architecture, and added a "Technical Deep Dive" section to highlight the **CNN+BiLSTM → BART** bridge, which is the "secret sauce" of your repo.
 
-Why this repo
---------------
-This codebase bundles reproducible pipelines for:
-- EEG preprocessing and artifact removal (MNE-based)
-- Per-word epoch extraction and dataset sharding for supervised training
-- A trainable EEG encoder + projection ("bridge") that interfaces with a pretrained BART decoder
-- A GPU-ready Dockerized inference service (FastAPI) with SQI checks, Prometheus metrics, and DB persistence
+---
 
-Quick overview (how to get started)
------------------------------------
-1. Create and activate a Python virtual environment:
+# 🧠 Neurolinked: Mind-to-Script (EEG → Text)
 
-   python -m venv .venv
-   # PowerShell
-   .\.venv\Scripts\Activate.ps1
-   # or Unix
-   source .venv/bin/activate
+**Neurolinked** is an end-to-end research and deployment toolkit designed to translate non-invasive EEG signals into natural language. By bridging the gap between neural oscillations and transformer-based language models, it enables direct "brain-to-text" synthesis.
 
-2. Install minimal test dependencies (fast):
+---
 
-   pip install -r requirements-ci.txt
-   pip install --index-url https://download.pytorch.org/whl/cpu torch==2.2.0+cpu
+## 🚀 Key Features
 
-3. Run unit tests:
+* **Preprocessing:** Automated artifact removal and MNE-based signal cleaning.
+* **Architecture:** A hybrid **CNN+BiLSTM Bridge** that projects EEG features into the **BART** embedding space.
+* **Data Ops:** High-performance dataset sharding for large-scale supervised training (ZuCo compatible).
+* **Production-Ready:** FastAPI wrapper with Prometheus monitoring, GPU support, and SQI (Signal Quality Index) filtering.
 
-   pytest -q
+---
 
-4. Start the API server for local testing:
+## 🛠️ Quick Start
 
-   $env:MODEL_DIR = "./models"         # PowerShell
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+### 1. Environment Setup
 
-Core endpoints
---------------
-- POST /infer — Accepts JSON `{ "signals": [[...], ...], "sfreq": 500 }` and returns {text, confidence, meta}.
-- GET /metrics — Prometheus-formatted metrics (latency, SQI, GPU memory, rejections).
-- GET /history — Recent inferences persisted to the DB.
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Unix
+# .\.venv\Scripts\Activate.ps1 for Windows
 
-Data & training workflow
-------------------------
-1. Convert raw ZuCo files to canonical pickles:
-   scripts/load_zuco.py
-2. Build per-word shards for training:
-   scripts/build_manifest_and_shards.py --canonical data/canonical --out data/shards --version v1.0.0
-3. Train the bridge:
-   python scripts/train_from_shards.py --version v1.0.0 --shard-root ./data/shards --model-dir ./models
+pip install -r requirements-ci.txt
+pip install --index-url https://download.pytorch.org/whl/cpu torch==2.2.0+cpu
 
-Deployment & ops
------------------
-- Store datasets and model artifacts on S3 with explicit version prefixes, e.g., `s3://bucket/mindtoscript/models/v1.0.0/`.
-- Use IAM instance roles (no plaintext credentials) and CloudWatch for billing/health alerts.
-- Docker compose is provided for local and EC2 deployment; the Dockerfile is GPU-ready.
+```
 
-Safety & observability
-----------------------
-- Signal Quality Index (SQI) guards against low-quality EEG (hard reject if SQI < 0.25).
-- Prometheus metrics include inference latency, SQI, GPU memory usage, and hard-reject counter.
-- Inference results are persisted to a relational DB for auditing and drift monitoring.
+### 2. Validation & Launch
 
-Files to review
----------------
-- DESIGN.md — architecture, timeline and cloud runbook
-- scripts/ — data processing, shard building, training and demo scripts
-- notebooks/ — end-to-end synthetic demo
-- app/ — FastAPI service, model loader, DB integration
+```bash
+# Run unit tests
+pytest -q
 
-Contributing, license & citations
----------------------------------
-Please add a LICENSE file and include proper citations for ZuCo and related papers when using this dataset. For contributions, follow the CI checks in `.github/workflows/ci.yml`.
+# Start the inference server
+export MODEL_DIR="./models"
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-Questions or next steps
------------------------
-To run a full demo on your machine or cloud, follow DESIGN.md. If you want I can add a one-click Terraform template for S3 + IAM + EC2 or generate a PNG architecture diagram — tell me which and I’ll add it.
+```
 
-Visuals
--------
-Below are the visual assets in this repo illustrating the model architecture and dataset/workflow.
+---
 
-![EEG to Text Model Overview](eeg-to-text-translation-a-model-for-deciphering-human-brain-activity-2.png)
+## 🏗️ System Architecture
 
-![EEG2Text: Open-Vocabulary / Pretraining](eeg2text-open-vocabulary-eeg-to-text-decoding-with-eeg-pre-training-and-multi-view-transformer-1.png)
+The pipeline follows a modular "Bridge" approach to leverage pretrained NLP power:
 
-Contact & citation
-------------------
-If you use this repo in research, cite the ZuCo dataset and include an appropriate acknowledgement. For questions reach out via the GitHub repo issues.
+1. **Encoder:** CNNs extract spatial features; BiLSTMs capture temporal brain dynamics.
+2. **Projection Layer:** Maps high-dimensional EEG features to the latent space of a decoder.
+3. **Decoder:** A pretrained **BART** model converts these embeddings into coherent English text.
+
+---
+
+## 📊 Data & Training Workflow
+
+To move from raw brainwaves to a trained model, follow these steps:
+
+| Step | Script | Description |
+| --- | --- | --- |
+| **1. Ingest** | `load_zuco.py` | Converts raw ZuCo files to canonical `.pkl` format. |
+| **2. Shard** | `build_manifest_and_shards.py` | Extracts per-word epochs and builds training shards. |
+| **3. Train** | `train_from_shards.py` | Trains the "Bridge" to align EEG with BART embeddings. |
+
+---
+
+## 🩺 Safety & Observability
+
+* **SQI Guardrail:** Hard-rejects any signal with a Signal Quality Index below **0.25**.
+* **Monitoring:** Integrated `/metrics` endpoint for Prometheus tracking:
+* `inference_latency_seconds`
+* `gpu_memory_usage_bytes`
+* `sqi_score_average`
+
+
+* **Persistence:** All inferences are logged to a relational DB for drift analysis and auditing.
+
+---
+
+## 📂 Repository Structure
+
+* `app/`: FastAPI service, model loaders, and DB logic.
+* `scripts/`: Core pipeline (Data loading → Sharding → Training).
+* `notebooks/`: Interactive demos and synthetic data tests.
+* `DESIGN.md`: Deep dive into cloud runbooks and infrastructure.
+
+---
+
+## 📜 License & Citations
+
+*This project is provided for research purposes.* * **License:** [Add LICENSE file]
+
+* **Dataset:** Please cite the **ZuCo Dataset** if using provided scripts.
+
+---
+
+**Would you like me to generate that PNG architecture diagram or provide the one-click Terraform template for your AWS deployment?**
