@@ -1,6 +1,6 @@
 # 🧠 Neurolinked: Mind-to-Script (EEG → Text)
 
-**Neurolinked** (a.k.a. *Mind-to-Script*) is an end-to-end research and deployment toolkit that translates non-invasive EEG recordings into natural-language text. By bridging neural oscillations with Transformer-based decoders, it provides a reproducible pipeline for brain-to-text synthesis.
+**Neurolinked** is an end-to-end research and deployment toolkit that translates non-invasive EEG recordings into natural-language text. By bridging neural oscillations with Transformer-based decoders, it provides a reproducible pipeline for brain-to-text synthesis.
 
 ---
 
@@ -10,6 +10,12 @@
 * **Neural Bridge:** A trainable **CNN + BiLSTM** projection layer that maps EEG features into the **BART** embedding space.
 * **Data Ops:** High-performance dataset sharding (ZuCo-ready) for scalable supervised training.
 * **Inference API:** GPU-ready FastAPI service with **SQI (Signal Quality Index)** guards and Prometheus metrics.
+
+---
+
+## 🏗️ Technical Architecture
+
+The architecture is designed to handle the high noise-to-signal ratio of EEG data while utilizing the linguistic power of pretrained Large Language Models (LLMs). The "Bridge" translates raw neural temporal features into tokens the decoder can understand.
 
 ---
 
@@ -39,21 +45,9 @@ pytest -q
 
 ---
 
-## 🏗️ The Pipeline
-
-The architecture is designed to handle the high noise-to-signal ratio of EEG data while utilizing the linguistic power of pretrained Large Language Models.
-
-### Core Workflow
-
-1. **Ingestion:** `scripts/load_zuco.py` converts raw brainwaves into canonical data formats.
-2. **Sharding:** `scripts/build_manifest_and_shards.py` prepares data for high-throughput training.
-3. **Training:** `scripts/train_from_shards.py` aligns the EEG encoder with the language decoder.
-
----
-
 ## 🌐 Deployment & API
 
-Neurolinked is production-ready via a Dockerized FastAPI service.
+Neurolinked is production-ready via a Dockerized FastAPI service, featuring real-time monitoring.
 
 ### Launch Local Inference Server
 
@@ -89,4 +83,4 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 * `notebooks/`: End-to-end synthetic demos for rapid prototyping.
 * `DESIGN.md`: Full architecture runbook and cloud deployment guide.
 
-Would you like me to **generate a high-fidelity PNG diagram** of this specific architecture for your README, or shall I draft the **Terraform template** for the S3 + EC2 deployment?
+---
